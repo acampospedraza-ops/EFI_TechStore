@@ -1,13 +1,15 @@
-
 import { useEffect, useState } from "react";
 import { Link, Outlet } from "react-router-dom";
+
 import {
   obtenerProductos,
   crearProducto,
+  actualizarProducto,
   eliminarProducto,
   obtenerMarcas,
   obtenerCategorias,
 } from "../services/productos";
+
 import { useFavoritos } from "../context/FavoritosContext";
 
 function Productos() {
@@ -26,12 +28,15 @@ function Productos() {
   const [categorias, setCategorias] = useState([]);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
 
+  const [productoEditando, setProductoEditando] = useState(null);
+
   const { favoritos, cambiarFavorito } = useFavoritos();
 
   async function cargarProductos() {
     try {
       setCargando(true);
       setError("");
+
       const datos = await obtenerProductos();
       setProductos(datos);
     } catch (error) {
@@ -61,6 +66,30 @@ function Productos() {
     cargarOpciones();
   }, []);
 
+  function limpiarFormulario() {
+    setNombre("");
+    setDescripcion("");
+    setPrecio("");
+    setStock("");
+    setMarcaId("");
+    setCategoriaId("");
+    setProductoEditando(null);
+  }
+
+  function manejarEditar(producto) {
+    setProductoEditando(producto);
+
+    setNombre(producto.nombre);
+    setDescripcion(producto.descripcion);
+    setPrecio(producto.precio);
+    setStock(producto.stock);
+    setMarcaId(producto.marca_id);
+    setCategoriaId(producto.categoria_id);
+
+    setMostrarFormulario(true);
+    setError("");
+  }
+
   async function manejarEnvio(e) {
     e.preventDefault();
 
@@ -77,22 +106,23 @@ function Productos() {
       return;
     }
 
-    try {
-      await crearProducto({
-        nombre: nombre.trim(),
-        descripcion: descripcion.trim(),
-        precio: Number(precio),
-        stock: Number(stock),
-        marca_id: Number(marcaId),
-        categoria_id: Number(categoriaId),
-      });
+    const producto = {
+      nombre: nombre.trim(),
+      descripcion: descripcion.trim(),
+      precio: Number(precio),
+      stock: Number(stock),
+      marca_id: Number(marcaId),
+      categoria_id: Number(categoriaId),
+    };
 
-      setNombre("");
-      setDescripcion("");
-      setPrecio("");
-      setStock("");
-      setMarcaId("");
-      setCategoriaId("");
+    try {
+      if (productoEditando) {
+        await actualizarProducto(productoEditando.id, producto);
+      } else {
+        await crearProducto(producto);
+      }
+
+      limpiarFormulario();
       setError("");
       setMostrarFormulario(false);
 
@@ -115,12 +145,18 @@ function Productos() {
     }
   }
 
+  function abrirFormularioNuevo() {
+    limpiarFormulario();
+    setMostrarFormulario(!mostrarFormulario);
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
 
       {/* ENCABEZADO */}
       <section className="bg-gradient-to-r from-violet-950 via-slate-900 to-slate-950 px-6 py-16">
         <div className="max-w-7xl mx-auto">
+
           <p className="text-violet-400 font-semibold uppercase tracking-widest text-sm mb-3">
             Tecnología para todos
           </p>
@@ -135,6 +171,7 @@ function Productos() {
           </p>
 
           <div className="flex flex-wrap gap-4 mt-8">
+
             <Link
               to="/productos"
               className="bg-violet-600 hover:bg-violet-500 px-6 py-3 rounded-xl font-semibold transition"
@@ -148,49 +185,66 @@ function Productos() {
             >
               Explorar categorías
             </Link>
+
           </div>
         </div>
       </section>
 
       <div className="max-w-7xl mx-auto px-6 py-12">
 
-        {/* CONTENIDO DE CATEGORÍAS */}
         <Outlet />
 
-        {/* TÍTULO DEL CATÁLOGO */}
+        {/* TÍTULO */}
         <section className="flex flex-wrap justify-between items-center gap-4 mb-8">
+
           <div>
-            <h2 className="text-3xl font-bold">Productos disponibles</h2>
+            <h2 className="text-3xl font-bold">
+              Productos disponibles
+            </h2>
+
             <p className="text-slate-400 mt-2">
               Encontrá lo que necesitás para tu computadora.
             </p>
           </div>
 
           <button
-            onClick={() => setMostrarFormulario(!mostrarFormulario)}
+            onClick={abrirFormularioNuevo}
             className="bg-violet-600 hover:bg-violet-500 px-5 py-3 rounded-xl font-semibold transition"
           >
-            {mostrarFormulario ? "Cerrar formulario" : "+ Agregar producto"}
+            {mostrarFormulario
+              ? "Cerrar formulario"
+              : "+ Agregar producto"}
           </button>
+
         </section>
 
         {/* FORMULARIO */}
         {mostrarFormulario && (
+
           <section className="bg-slate-900 border border-slate-700 rounded-2xl p-6 md:p-8 mb-12">
+
             <h2 className="text-2xl font-bold mb-2">
-              Nuevo producto
+              {productoEditando
+                ? "Editar producto"
+                : "Nuevo producto"}
             </h2>
 
             <p className="text-slate-400 mb-6">
-              Completá los datos para agregar un producto al catálogo.
+              {productoEditando
+                ? "Modificá los datos del producto."
+                : "Completá los datos para agregar un producto al catálogo."}
             </p>
 
-            <form onSubmit={manejarEnvio} className="grid md:grid-cols-2 gap-5">
+            <form
+              onSubmit={manejarEnvio}
+              className="grid md:grid-cols-2 gap-5"
+            >
 
               <div>
                 <label className="block text-sm text-slate-300 mb-2">
                   Nombre del producto
                 </label>
+
                 <input
                   className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-violet-500 outline-none"
                   placeholder="Ej: Teclado mecánico"
@@ -206,6 +260,7 @@ function Productos() {
                 <label className="block text-sm text-slate-300 mb-2">
                   Precio
                 </label>
+
                 <input
                   className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-violet-500 outline-none"
                   type="number"
@@ -222,6 +277,7 @@ function Productos() {
                 <label className="block text-sm text-slate-300 mb-2">
                   Descripción
                 </label>
+
                 <textarea
                   className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-violet-500 outline-none"
                   placeholder="Describí el producto..."
@@ -238,6 +294,7 @@ function Productos() {
                 <label className="block text-sm text-slate-300 mb-2">
                   Stock disponible
                 </label>
+
                 <input
                   className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-violet-500 outline-none"
                   type="number"
@@ -254,18 +311,22 @@ function Productos() {
                 <label className="block text-sm text-slate-300 mb-2">
                   Marca
                 </label>
+
                 <select
                   className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-violet-500 outline-none"
                   value={marcaId}
                   onChange={(e) => setMarcaId(e.target.value)}
                   required
                 >
+
                   <option value="">Seleccionar marca</option>
+
                   {marcas.map((marca) => (
                     <option key={marca.id} value={marca.id}>
                       {marca.nombre}
                     </option>
                   ))}
+
                 </select>
               </div>
 
@@ -273,88 +334,115 @@ function Productos() {
                 <label className="block text-sm text-slate-300 mb-2">
                   Categoría
                 </label>
+
                 <select
                   className="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-violet-500 outline-none"
                   value={categoriaId}
                   onChange={(e) => setCategoriaId(e.target.value)}
                   required
                 >
+
                   <option value="">Seleccionar categoría</option>
+
                   {categorias.map((categoria) => (
                     <option key={categoria.id} value={categoria.id}>
                       {categoria.nombre}
                     </option>
                   ))}
+
                 </select>
               </div>
 
               <div className="md:col-span-2">
+
                 <button
                   type="submit"
                   className="w-full bg-violet-600 hover:bg-violet-500 p-3 rounded-xl font-bold transition"
                 >
-                  Guardar producto
+                  {productoEditando
+                    ? "Guardar cambios"
+                    : "Guardar producto"}
                 </button>
+
               </div>
+
             </form>
+
           </section>
         )}
 
-        {/* MENSAJES */}
+        {/* ERROR */}
         {error && (
           <div className="bg-red-950 border border-red-800 text-red-300 p-4 rounded-xl mb-6">
             {error}
           </div>
         )}
 
+        {/* CARGANDO */}
         {cargando && (
           <p className="text-slate-400 py-10 text-center">
             Cargando productos...
           </p>
         )}
 
+        {/* SIN PRODUCTOS */}
         {!cargando && productos.length === 0 && (
+
           <div className="text-center py-16 bg-slate-900 rounded-2xl border border-slate-800">
+
             <p className="text-5xl mb-4">📦</p>
+
             <h3 className="text-xl font-bold mb-2">
               Todavía no hay productos
             </h3>
+
             <p className="text-slate-400">
               Agregá tu primer producto para comenzar.
             </p>
+
           </div>
         )}
 
-        {/* TARJETAS DE PRODUCTOS */}
+        {/* TARJETAS */}
         {!cargando && productos.length > 0 && (
+
           <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-7">
 
             {productos.map((producto) => (
+
               <article
                 key={producto.id}
                 className="group bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-violet-500 hover:-translate-y-1 transition duration-300"
               >
 
                 <div className="h-44 bg-gradient-to-br from-violet-950 via-slate-800 to-slate-950 flex items-center justify-center">
+
                   <span className="text-7xl group-hover:scale-110 transition duration-300">
                     💻
                   </span>
+
                 </div>
 
                 <div className="p-6">
 
                   <div className="flex justify-between items-center mb-3">
+
                     <span className="text-xs uppercase tracking-wider text-violet-400 font-bold">
                       TechStore
                     </span>
 
-                    <span className={`text-xs px-3 py-1 rounded-full ${
-                      producto.stock > 0
-                        ? "bg-emerald-950 text-emerald-400"
-                        : "bg-red-950 text-red-400"
-                    }`}>
-                      {producto.stock > 0 ? "Disponible" : "Sin stock"}
+                    <span
+                      className={`text-xs px-3 py-1 rounded-full ${
+                        producto.stock > 0
+                          ? "bg-emerald-950 text-emerald-400"
+                          : "bg-red-950 text-red-400"
+                      }`}
+                    >
+                      {producto.stock > 0
+                        ? "Disponible"
+                        : "Sin stock"}
                     </span>
+
                   </div>
 
                   <h3 className="text-xl font-bold mb-2 group-hover:text-violet-400 transition">
@@ -366,6 +454,7 @@ function Productos() {
                   </p>
 
                   <div className="border-t border-slate-800 pt-4">
+
                     <p className="text-2xl font-black text-violet-400">
                       {Number(producto.precio).toLocaleString("es-AR", {
                         style: "currency",
@@ -377,6 +466,7 @@ function Productos() {
                     <p className="text-slate-500 text-sm mt-1">
                       Stock: {producto.stock} unidades
                     </p>
+
                   </div>
 
                   <div className="flex flex-wrap gap-2 mt-6">
@@ -389,10 +479,19 @@ function Productos() {
                     </Link>
 
                     <button
+                      onClick={() => manejarEditar(producto)}
+                      className="bg-blue-900 hover:bg-blue-800 px-3 py-2 rounded-lg transition"
+                    >
+                      Editar
+                    </button>
+
+                    <button
                       onClick={() => cambiarFavorito(producto)}
                       className="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg transition"
                     >
-                      {favoritos.some((item) => item.id === producto.id)
+                      {favoritos.some(
+                        (item) => item.id === producto.id
+                      )
                         ? "♥"
                         : "♡"}
                     </button>
@@ -405,14 +504,19 @@ function Productos() {
                     </button>
 
                   </div>
+
                 </div>
+
               </article>
+
             ))}
 
           </section>
+
         )}
 
       </div>
+
     </main>
   );
 }
