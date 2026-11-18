@@ -1,8 +1,12 @@
 
+import os
 from sqlmodel import Session, SQLModel, create_engine
 
 # Dirección del archivo donde se guardará la base de datos
-DATABASE_URL = "sqlite:///./techstore.db"
+if os.getenv("RENDER"):
+    DATABASE_URL = "sqlite:////var/data/techstore.db"
+else:
+    DATABASE_URL = "sqlite:///./techstore.db"
 
 # Crea la conexión con SQLite
 engine = create_engine(
